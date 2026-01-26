@@ -282,6 +282,19 @@ function pickDiverseActivities(scored: Array<{ activity: Activity; score: number
   return selected;
 }
 
+// Activities to exclude from bonus selection because they overlap with recurring tasks
+const EXCLUDED_BONUS_PATTERNS = [
+  /walk/i,      // "Going for a walk" is a recurring task
+  /stroll/i,    // Also walking
+  /bath/i,      // "Having a bath" is a recurring task
+];
+
+// Check if an activity overlaps with recurring tasks
+function overlapsWithRecurringTasks(activity: Activity): boolean {
+  const titleAndTags = activity.title + ' ' + activity.tags.join(' ');
+  return EXCLUDED_BONUS_PATTERNS.some(pattern => pattern.test(titleAndTags));
+}
+
 // Main function to select bonus activities
 export function selectBonusActivities(
   survey: DailySurvey,
@@ -296,8 +309,9 @@ export function selectBonusActivities(
     babyAgeMonths,
   };
 
-  // Score all activities
+  // Score all activities, excluding those that overlap with recurring tasks
   const scored = activities
+    .filter(activity => !overlapsWithRecurringTasks(activity)) // Filter out walk/bath activities
     .map(activity => ({
       activity,
       score: scoreActivity(activity, context),
