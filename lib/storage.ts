@@ -27,7 +27,7 @@ const DEFAULT_PREFERENCES: UserPreferences = {
     'Crawling/walking practice',
     'Music time',
   ],
-  feedingTimes: ['8:00 AM', '12:00 PM', '4:00 PM'],
+  feedingTimes: ['8:00 AM', '12:00 PM', '4:00 PM', '7:30 PM'],
   napsPerDay: 2,
   napDuration: 30, // minutes
 };

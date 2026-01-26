@@ -329,22 +329,34 @@ export function generateChecklist(
   // Track scheduled times to avoid conflicts (in minutes since midnight)
   const scheduledTimes: Array<{ start: number; end: number }> = [];
 
-  // Add appointment blocks to scheduled times (these are fixed)
+  // FEEDS ARE ESSENTIAL - Add them FIRST as fixed anchor points
+  // These happen at their scheduled times regardless of appointments
+  if (preferences.feedingTimes && preferences.feedingTimes.length > 0) {
+    preferences.feedingTimes.forEach((time, index) => {
+      const mins = parseTimeToMinutes(time);
+      // Feeds are fixed - add them to scheduledTimes so OTHER activities avoid them
+      scheduledTimes.push({ start: mins, end: mins + 30 });
+      items.push({
+        id: `feeding-${index}`,
+        task: `Feed baby`,
+        completed: false,
+        type: 'feeding',
+        time: minutesToTimeString(mins),
+        timeBlock: getTimeBlock(mins),
+        suggestedTime: minutesToTimeString(mins),
+      });
+    });
+  }
+
+  // Add appointment blocks to scheduled times (after feeds, so activities avoid both)
   for (const apt of appointments) {
     if (apt.startMins !== undefined && apt.endMins !== undefined) {
       scheduledTimes.push({ start: apt.startMins, end: apt.endMins });
     }
   }
 
-  // Helper to check if a time slot is available
+  // Helper to check if a time slot is available (checks both feeds and appointments)
   const isSlotAvailable = (start: number, end: number): boolean => {
-    // Check appointments
-    for (const apt of appointments) {
-      if (apt.startMins !== undefined && apt.endMins !== undefined) {
-        if (start < apt.endMins && end > apt.startMins) return false;
-      }
-    }
-    // Check already scheduled items
     for (const slot of scheduledTimes) {
       if (start < slot.end && end > slot.start) return false;
     }
@@ -358,7 +370,7 @@ export function generateChecklist(
       return preferredMins;
     }
     // Search forward in 15-minute increments
-    for (let mins = preferredMins + 15; mins <= 1140; mins += 15) { // Up to 7pm
+    for (let mins = preferredMins + 15; mins <= 1170; mins += 15) { // Up to 7:30pm
       if (isSlotAvailable(mins, mins + duration)) {
         return mins;
       }
@@ -371,24 +383,6 @@ export function generateChecklist(
     }
     return preferredMins; // Fallback
   };
-
-  // Add feeding times (these are anchor points)
-  if (preferences.feedingTimes && preferences.feedingTimes.length > 0) {
-    preferences.feedingTimes.forEach((time, index) => {
-      const preferredMins = parseTimeToMinutes(time);
-      const mins = findNextSlot(preferredMins, 30);
-      scheduledTimes.push({ start: mins, end: mins + 30 });
-      items.push({
-        id: `feeding-${index}`,
-        task: `Feed baby`,
-        completed: false,
-        type: 'feeding',
-        time: minutesToTimeString(mins),
-        timeBlock: getTimeBlock(mins),
-        suggestedTime: minutesToTimeString(mins),
-      });
-    });
-  }
 
   // Add naps
   const napTimes = ['10:00 AM', '2:30 PM'];
