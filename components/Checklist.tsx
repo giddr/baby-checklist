@@ -14,6 +14,7 @@ interface ChecklistProps {
   onEditSurvey: () => void;
   onStartOver: () => void;
   onOpenFeedback: () => void;
+  onRefreshBonusActivity: (itemId: string) => void;
 }
 
 type ViewMode = 'timeline' | 'categories';
@@ -182,6 +183,7 @@ export default function Checklist({
   onEditSurvey,
   onStartOver,
   onOpenFeedback,
+  onRefreshBonusActivity,
 }: ChecklistProps) {
   const [viewMode, setViewMode] = useState<ViewMode>('timeline');
   const [draggedItem, setDraggedItem] = useState<ChecklistItem | null>(null);
@@ -480,6 +482,7 @@ export default function Checklist({
                       item={item}
                       onToggle={() => onToggle(item.id)}
                       onEdit={() => handleEditItem(item)}
+                      onRefresh={item.type === 'bonus' ? () => onRefreshBonusActivity(item.id) : undefined}
                       showTime
                       showDetails={item.type === 'bonus'}
                       draggable
@@ -563,6 +566,7 @@ export default function Checklist({
                   key={item.id}
                   item={item}
                   onToggle={() => onToggle(item.id)}
+                  onRefresh={() => onRefreshBonusActivity(item.id)}
                   showDetails
                 />
               ))}
@@ -794,6 +798,7 @@ interface TaskItemProps {
   item: ChecklistItem;
   onToggle: () => void;
   onEdit?: () => void;
+  onRefresh?: () => void;
   showDetails?: boolean;
   showTime?: boolean;
   draggable?: boolean;
@@ -811,6 +816,7 @@ function TaskItem({
   item,
   onToggle,
   onEdit,
+  onRefresh,
   showDetails,
   showTime,
   draggable,
@@ -901,10 +907,19 @@ function TaskItem({
           <span className="text-xs text-indigo-500 ml-6">edited</span>
         )}
       </div>
+      {onRefresh && !item.completed && (
+        <button
+          onClick={onRefresh}
+          className="ml-1 p-1 text-gray-400 hover:text-indigo-500 transition-colors"
+          title="Switch activity"
+        >
+          🔄
+        </button>
+      )}
       {onEdit && (
         <button
           onClick={onEdit}
-          className="ml-2 p-1 text-gray-400 hover:text-indigo-500 transition-colors"
+          className="ml-1 p-1 text-gray-400 hover:text-indigo-500 transition-colors"
           title="Edit item"
         >
           ✏️

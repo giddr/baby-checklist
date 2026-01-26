@@ -295,11 +295,34 @@ function overlapsWithRecurringTasks(activity: Activity): boolean {
   return EXCLUDED_BONUS_PATTERNS.some(pattern => pattern.test(titleAndTags));
 }
 
+// Check if an activity is a cafe or food venue activity
+function isCafeOrFoodActivity(activity: Activity): boolean {
+  const titleLower = activity.title.toLowerCase();
+  const tagsLower = activity.tags.map(t => t.toLowerCase());
+
+  // Check for cafe/food related keywords
+  const cafeKeywords = ['cafe', 'coffee', 'brunch', 'lunch'];
+
+  if (cafeKeywords.some(keyword => titleLower.includes(keyword))) {
+    return true;
+  }
+  if (tagsLower.some(tag => cafeKeywords.some(keyword => tag.includes(keyword)))) {
+    return true;
+  }
+  // Also check the ID
+  if (cafeKeywords.some(keyword => activity.id.toLowerCase().includes(keyword))) {
+    return true;
+  }
+
+  return false;
+}
+
 // Main function to select bonus activities
 export function selectBonusActivities(
   survey: DailySurvey,
   weather: WeatherData | null,
-  count: number = 3
+  count: number = 3,
+  scheduledTimes?: number[] // Optional array of scheduled start times in minutes for each activity
 ): Activity[] {
   const babyAgeMonths = getBabyAgeMonths();
 
@@ -318,7 +341,68 @@ export function selectBonusActivities(
     }))
     .filter(({ score }) => score > 0); // Remove disqualified
 
+  // If scheduled times provided, filter cafe activities based on time constraints
+  if (scheduledTimes && scheduledTimes.length > 0) {
+    return pickDiverseActivitiesWithTimeConstraints(scored, count, scheduledTimes);
+  }
+
   return pickDiverseActivities(scored, count);
+}
+
+// Pick diverse activities considering time constraints for cafe activities
+function pickDiverseActivitiesWithTimeConstraints(
+  scored: Array<{ activity: Activity; score: number }>,
+  count: number,
+  scheduledTimes: number[]
+): Activity[] {
+  const selected: Activity[] = [];
+  const usedCategories = new Set<string>();
+
+  // Sort by score descending
+  const sorted = [...scored].sort((a, b) => b.score - a.score);
+
+  // For each slot, check if cafe activities would end after 3pm
+  for (let i = 0; i < count && selected.length < count; i++) {
+    const scheduledMins = scheduledTimes[i] || scheduledTimes[scheduledTimes.length - 1] || 570;
+
+    for (const { activity } of sorted) {
+      if (selected.includes(activity)) continue;
+
+      // Check time constraint for cafe activities
+      if (isCafeOrFoodActivity(activity)) {
+        const endTime = scheduledMins + activity.duration;
+        if (endTime > 900) continue; // Skip if ends after 3pm
+      }
+
+      // First pass: try to get different categories
+      if (selected.length < count) {
+        if (!usedCategories.has(activity.category) || selected.length >= sorted.length / 2) {
+          selected.push(activity);
+          usedCategories.add(activity.category);
+          break;
+        }
+      }
+    }
+  }
+
+  // Fill remaining slots
+  for (let i = selected.length; i < count; i++) {
+    const scheduledMins = scheduledTimes[i] || scheduledTimes[scheduledTimes.length - 1] || 570;
+
+    for (const { activity } of sorted) {
+      if (selected.includes(activity)) continue;
+
+      if (isCafeOrFoodActivity(activity)) {
+        const endTime = scheduledMins + activity.duration;
+        if (endTime > 900) continue;
+      }
+
+      selected.push(activity);
+      break;
+    }
+  }
+
+  return selected;
 }
 
 // Generate the full checklist for today with time-based planning
@@ -518,6 +602,44 @@ export function generateChecklist(
   });
 
   return items;
+}
+
+// Get a replacement bonus activity (excluding currently used ones)
+export function getReplacementActivity(
+  survey: DailySurvey,
+  weather: WeatherData | null,
+  excludeActivityIds: string[],
+  scheduledMinutes?: number
+): Activity | null {
+  const babyAgeMonths = getBabyAgeMonths();
+
+  const context: SelectionContext = {
+    survey,
+    weather,
+    babyAgeMonths,
+  };
+
+  // Score all activities, excluding those that overlap with recurring tasks and already used ones
+  const scored = activities
+    .filter(activity => !overlapsWithRecurringTasks(activity))
+    .filter(activity => !excludeActivityIds.includes(activity.id))
+    .filter(activity => {
+      // Filter cafe/food activities by time constraint (must end by 3pm = 900 mins)
+      if (isCafeOrFoodActivity(activity) && scheduledMinutes !== undefined) {
+        const endTime = scheduledMinutes + activity.duration;
+        if (endTime > 900) return false; // 3pm = 15:00 = 900 minutes
+      }
+      return true;
+    })
+    .map(activity => ({
+      activity,
+      score: scoreActivity(activity, context),
+    }))
+    .filter(({ score }) => score > 0)
+    .sort((a, b) => b.score - a.score);
+
+  // Return the top scoring activity
+  return scored.length > 0 ? scored[0].activity : null;
 }
 
 // Get a specific activity by ID (for details view)

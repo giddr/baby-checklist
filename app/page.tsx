@@ -14,7 +14,7 @@ import {
   getPreferences,
   shouldShowCalendarReminder,
 } from '@/lib/storage';
-import { generateChecklist } from '@/lib/activities';
+import { generateChecklist, getReplacementActivity } from '@/lib/activities';
 import { fetchWeather } from '@/lib/weather';
 import type { DailySurvey, DailyChecklist, WeatherData, ChecklistItem } from '@/types';
 
@@ -119,6 +119,56 @@ export default function Home() {
     setChecklist(updated);
   };
 
+  // Handle refresh bonus activity - swap it for a different one
+  const handleRefreshBonusActivity = (itemId: string) => {
+    if (!checklist || !survey) return;
+
+    const item = checklist.items.find(i => i.id === itemId);
+    if (!item || item.type !== 'bonus') return;
+
+    // Get IDs of all current bonus activities to exclude them
+    const currentBonusIds = checklist.items
+      .filter(i => i.type === 'bonus' && i.activity)
+      .map(i => i.activity!.id);
+
+    // Parse the scheduled time to minutes for cafe filtering
+    let scheduledMins: number | undefined;
+    if (item.suggestedTime) {
+      const match = item.suggestedTime.match(/(\d{1,2}):(\d{2})\s*(AM|PM)/i);
+      if (match) {
+        let hours = parseInt(match[1]);
+        const minutes = parseInt(match[2]);
+        const isPM = match[3].toUpperCase() === 'PM';
+        if (isPM && hours !== 12) hours += 12;
+        if (!isPM && hours === 12) hours = 0;
+        scheduledMins = hours * 60 + minutes;
+      }
+    }
+
+    // Get a replacement activity
+    const replacement = getReplacementActivity(survey, weather, currentBonusIds, scheduledMins);
+    if (!replacement) return;
+
+    // Update the checklist with the new activity
+    const newItems = checklist.items.map(i => {
+      if (i.id === itemId) {
+        return {
+          ...i,
+          task: `${replacement.title} (${replacement.duration}min)`,
+          activity: replacement,
+        };
+      }
+      return i;
+    });
+
+    const updated: DailyChecklist = {
+      ...checklist,
+      items: newItems,
+    };
+    saveChecklist(updated);
+    setChecklist(updated);
+  };
+
   // Render loading state
   if (view === 'loading') {
     return (
@@ -147,6 +197,7 @@ export default function Home() {
           onEditSurvey={handleEditSurvey}
           onStartOver={handleStartOver}
           onOpenFeedback={() => setShowFeedback(true)}
+          onRefreshBonusActivity={handleRefreshBonusActivity}
         />
       )}
 
