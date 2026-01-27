@@ -453,8 +453,13 @@ export function generateChecklist(
     }
   }
 
+  // All activities must END by 5:30 PM (1110 minutes)
+  const END_BY_TIME = 1110; // 5:30 PM
+
   // Helper to check if a time slot is available (checks both feeds and appointments)
   const isSlotAvailable = (start: number, end: number): boolean => {
+    // Must end by 5:30 PM
+    if (end > END_BY_TIME) return false;
     for (const slot of scheduledTimes) {
       if (start < slot.end && end > slot.start) return false;
     }
@@ -462,23 +467,37 @@ export function generateChecklist(
   };
 
   // Helper to find next available slot starting from a preferred time
+  // Backfills activities before 5:30 PM if needed
   const findNextSlot = (preferredMins: number, duration: number): number => {
-    // Try preferred time first
+    // If preferred time + duration exceeds 5:30 PM, search backward first
+    if (preferredMins + duration > END_BY_TIME) {
+      // Search backward from 5:30 PM minus duration
+      for (let mins = END_BY_TIME - duration; mins >= 420; mins -= 15) { // From 7am
+        if (isSlotAvailable(mins, mins + duration)) {
+          return mins;
+        }
+      }
+    }
+
+    // Try preferred time first (if it fits within 5:30 PM)
     if (isSlotAvailable(preferredMins, preferredMins + duration)) {
       return preferredMins;
     }
-    // Search forward in 15-minute increments
-    for (let mins = preferredMins + 15; mins <= 1170; mins += 15) { // Up to 7:30pm
+
+    // Search forward in 15-minute increments (up to 5:30 PM)
+    for (let mins = preferredMins + 15; mins <= END_BY_TIME - duration; mins += 15) {
       if (isSlotAvailable(mins, mins + duration)) {
         return mins;
       }
     }
+
     // Search backward if nothing found forward
     for (let mins = preferredMins - 15; mins >= 420; mins -= 15) { // From 7am
       if (isSlotAvailable(mins, mins + duration)) {
         return mins;
       }
     }
+
     return preferredMins; // Fallback
   };
 
@@ -503,14 +522,15 @@ export function generateChecklist(
   }
 
   // Recurring tasks with their default times and social flags
-  const recurringTimeSlots: Record<string, { time: string; duration: number; social: boolean; exclusive: boolean }> = {
+  // All activities must end by 5:30 PM, except bath which happens after
+  const recurringTimeSlots: Record<string, { time: string; duration: number; social: boolean; exclusive: boolean; exemptFromEndTime?: boolean }> = {
     'Read 5 books': { time: '9:00 AM', duration: 20, social: true, exclusive: false },
     'Eating solids': { time: '12:30 PM', duration: 30, social: false, exclusive: true },
-    'Going for a walk': { time: '4:00 PM', duration: 45, social: true, exclusive: true },
-    'Having a bath': { time: '6:00 PM', duration: 30, social: false, exclusive: true },
+    'Going for a walk': { time: '3:30 PM', duration: 45, social: true, exclusive: true },
+    'Having a bath': { time: '6:00 PM', duration: 30, social: false, exclusive: true, exemptFromEndTime: true },
     'Vestibular play': { time: '11:00 AM', duration: 15, social: true, exclusive: false },
-    'Crawling/walking practice': { time: '3:00 PM', duration: 20, social: true, exclusive: false },
-    'Music time': { time: '5:00 PM', duration: 15, social: true, exclusive: false },
+    'Crawling/walking practice': { time: '2:30 PM', duration: 20, social: true, exclusive: false },
+    'Music time': { time: '4:30 PM', duration: 15, social: true, exclusive: false },
   };
 
   // Activities that are good for visitor time (can be done socially)
@@ -550,7 +570,22 @@ export function generateChecklist(
       }
     }
 
-    const mins = findNextSlot(preferredMins, defaultSlot.duration);
+    // Bath is exempt from 5:30 PM end time - schedule at its preferred time
+    let mins: number;
+    if (defaultSlot.exemptFromEndTime) {
+      // For bath, just check conflicts without the 5:30 PM constraint
+      const isSlotAvailableNoEndLimit = (start: number, end: number): boolean => {
+        for (const slot of scheduledTimes) {
+          if (start < slot.end && end > slot.start) return false;
+        }
+        return true;
+      };
+      mins = isSlotAvailableNoEndLimit(preferredMins, preferredMins + defaultSlot.duration)
+        ? preferredMins
+        : preferredMins; // Keep at preferred time even if conflict (bath is essential)
+    } else {
+      mins = findNextSlot(preferredMins, defaultSlot.duration);
+    }
     scheduledTimes.push({ start: mins, end: mins + defaultSlot.duration });
 
     items.push({
@@ -565,9 +600,9 @@ export function generateChecklist(
     });
   });
 
-  // Add bonus activities spread across the day
+  // Add bonus activities spread across the day (must end by 5:30 PM)
   const bonusActivities = selectBonusActivities(survey, weather, 3);
-  const bonusDefaultTimes = [570, 810, 990]; // 9:30 AM, 1:30 PM, 4:30 PM
+  const bonusDefaultTimes = [570, 810, 930]; // 9:30 AM, 1:30 PM, 3:30 PM
 
   bonusActivities.forEach((activity, index) => {
     let preferredMins = bonusDefaultTimes[index] || bonusDefaultTimes[0];
