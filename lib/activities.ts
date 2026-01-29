@@ -1,6 +1,6 @@
 import type { Activity, DailySurvey, WeatherData, ChecklistItem, TimeBlock, ParsedAppointment } from '@/types';
 import activitiesData from '@/data/activities.json';
-import { getBabyAgeMonths, getPreferences } from './storage';
+import { getBabyAgeMonths, getPreferences, getActivityPreferences } from './storage';
 
 const activities = activitiesData as Activity[];
 
@@ -243,6 +243,22 @@ function scoreActivity(activity: Activity, context: SelectionContext): number {
       score += 15; // Prefer shorter activities on busy days
     } else if (activity.duration >= 30) {
       score -= 10; // Penalize longer activities
+    }
+  }
+
+  // Boost liked activities and similar ones
+  const prefs = getActivityPreferences();
+  if (prefs.likedActivityIds.includes(activity.id)) {
+    score += 25; // Big boost for previously liked activities
+  }
+  // Boost activities in liked categories
+  if (prefs.likedCategories[activity.category]) {
+    score += Math.min(prefs.likedCategories[activity.category] * 5, 20); // Up to +20 based on how often category is liked
+  }
+  // Boost activities with liked tags
+  for (const tag of activity.tags) {
+    if (prefs.likedTags[tag]) {
+      score += Math.min(prefs.likedTags[tag] * 3, 15); // Up to +15 per liked tag
     }
   }
 

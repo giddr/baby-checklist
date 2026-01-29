@@ -118,3 +118,11 @@ export interface VenueSuggestion {
   notes: string;
   submittedAt: string;
 }
+
+// Track liked activities to learn preferences
+export interface ActivityPreferences {
+  likedActivityIds: string[];           // IDs of activities that were liked
+  likedCategories: Record<string, number>;  // Category -> like count
+  likedTags: Record<string, number>;        // Tag -> like count
+  lastUpdated: string;
+}

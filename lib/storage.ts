@@ -1,4 +1,4 @@
-import type { UserPreferences, DailySurvey, AppState, DailyChecklist, DailyFeedback, VenueSuggestion } from '@/types';
+import type { UserPreferences, DailySurvey, AppState, DailyChecklist, DailyFeedback, VenueSuggestion, ActivityPreferences, Activity } from '@/types';
 
 const STORAGE_KEYS = {
   USER_PREFERENCES: 'baby-checklist-preferences',
@@ -7,6 +7,7 @@ const STORAGE_KEYS = {
   DAILY_CHECKLIST: 'baby-checklist-checklist',
   DAILY_FEEDBACK: 'baby-checklist-feedback',
   VENUE_SUGGESTIONS: 'baby-checklist-venue-suggestions',
+  ACTIVITY_PREFERENCES: 'baby-checklist-activity-preferences',
 } as const;
 
 // Default values
@@ -201,4 +202,69 @@ export function addVenueSuggestion(suggestion: Omit<VenueSuggestion, 'submittedA
     submittedAt: new Date().toISOString(),
   });
   safeSetItem(STORAGE_KEYS.VENUE_SUGGESTIONS, suggestions);
+}
+
+// Activity Preferences - track liked activities to learn what baby/parent enjoys
+const DEFAULT_ACTIVITY_PREFERENCES: ActivityPreferences = {
+  likedActivityIds: [],
+  likedCategories: {},
+  likedTags: {},
+  lastUpdated: new Date().toISOString(),
+};
+
+export function getActivityPreferences(): ActivityPreferences {
+  return safeGetItem(STORAGE_KEYS.ACTIVITY_PREFERENCES, DEFAULT_ACTIVITY_PREFERENCES);
+}
+
+export function likeActivity(activity: Activity): void {
+  const prefs = getActivityPreferences();
+
+  // Add activity ID if not already liked
+  if (!prefs.likedActivityIds.includes(activity.id)) {
+    prefs.likedActivityIds.push(activity.id);
+  }
+
+  // Increment category count
+  prefs.likedCategories[activity.category] = (prefs.likedCategories[activity.category] || 0) + 1;
+
+  // Increment tag counts
+  for (const tag of activity.tags) {
+    prefs.likedTags[tag] = (prefs.likedTags[tag] || 0) + 1;
+  }
+
+  prefs.lastUpdated = new Date().toISOString();
+  safeSetItem(STORAGE_KEYS.ACTIVITY_PREFERENCES, prefs);
+}
+
+export function unlikeActivity(activity: Activity): void {
+  const prefs = getActivityPreferences();
+
+  // Remove activity ID
+  prefs.likedActivityIds = prefs.likedActivityIds.filter(id => id !== activity.id);
+
+  // Decrement category count
+  if (prefs.likedCategories[activity.category]) {
+    prefs.likedCategories[activity.category]--;
+    if (prefs.likedCategories[activity.category] <= 0) {
+      delete prefs.likedCategories[activity.category];
+    }
+  }
+
+  // Decrement tag counts
+  for (const tag of activity.tags) {
+    if (prefs.likedTags[tag]) {
+      prefs.likedTags[tag]--;
+      if (prefs.likedTags[tag] <= 0) {
+        delete prefs.likedTags[tag];
+      }
+    }
+  }
+
+  prefs.lastUpdated = new Date().toISOString();
+  safeSetItem(STORAGE_KEYS.ACTIVITY_PREFERENCES, prefs);
+}
+
+export function isActivityLiked(activityId: string): boolean {
+  const prefs = getActivityPreferences();
+  return prefs.likedActivityIds.includes(activityId);
 }

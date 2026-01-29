@@ -4,6 +4,7 @@ import { useState, useCallback } from 'react';
 import Link from 'next/link';
 import type { ChecklistItem, WeatherData, DailySurvey, TimeBlock } from '@/types';
 import { getWeatherEmoji } from '@/lib/weather';
+import { likeActivity, unlikeActivity, isActivityLiked } from '@/lib/storage';
 
 interface ChecklistProps {
   items: ChecklistItem[];
@@ -829,6 +830,21 @@ function TaskItem({
   onMoveUp,
   onMoveDown,
 }: TaskItemProps) {
+  const [isLiked, setIsLiked] = useState(() =>
+    item.activity ? isActivityLiked(item.activity.id) : false
+  );
+
+  const handleLike = () => {
+    if (!item.activity) return;
+    if (isLiked) {
+      unlikeActivity(item.activity);
+      setIsLiked(false);
+    } else {
+      likeActivity(item.activity);
+      setIsLiked(true);
+    }
+  };
+
   const typeEmoji: Record<string, string> = {
     feeding: '🍼',
     nap: '😴',
@@ -907,6 +923,16 @@ function TaskItem({
           <span className="text-xs text-indigo-500 ml-6">edited</span>
         )}
       </div>
+      {/* Like button for bonus activities */}
+      {item.type === 'bonus' && item.activity && (
+        <button
+          onClick={handleLike}
+          className={`ml-1 p-1 transition-colors ${isLiked ? 'text-red-500' : 'text-gray-400 hover:text-red-400'}`}
+          title={isLiked ? 'Unlike activity' : 'Like activity (we\'ll suggest more like this)'}
+        >
+          {isLiked ? '❤️' : '🤍'}
+        </button>
+      )}
       {onRefresh && !item.completed && (
         <button
           onClick={onRefresh}
