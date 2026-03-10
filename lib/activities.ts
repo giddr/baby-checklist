@@ -496,13 +496,16 @@ export function generateChecklist(
     return preferredMins; // Fallback
   };
 
-  // Add naps
-  const napTimes = ['10:00 AM', '2:30 PM'];
+  // Add naps with individual times and durations
+  const napSchedule = [
+    { time: '8:30 AM', duration: 30 },   // Nap 1: 8:30-9:00
+    { time: '12:15 PM', duration: 75 },   // Nap 2: 12:15-1:30
+  ];
   if (preferences.napsPerDay && preferences.napsPerDay > 0) {
     for (let i = 0; i < preferences.napsPerDay; i++) {
-      const napTime = napTimes[i] || napTimes[napTimes.length - 1];
-      const preferredMins = parseTimeToMinutes(napTime);
-      const duration = preferences.napDuration || 30;
+      const nap = napSchedule[i] || napSchedule[napSchedule.length - 1];
+      const preferredMins = parseTimeToMinutes(nap.time);
+      const duration = nap.duration;
       const mins = findNextSlot(preferredMins, duration);
       scheduledTimes.push({ start: mins, end: mins + duration });
       items.push({
@@ -519,7 +522,7 @@ export function generateChecklist(
   // Recurring tasks with their default times and social flags
   // All activities must end by 5:30 PM, except bath which happens after
   const recurringTimeSlots: Record<string, { time: string; duration: number; social: boolean; exclusive: boolean; exemptFromEndTime?: boolean }> = {
-    'Read 5 books': { time: '9:00 AM', duration: 20, social: true, exclusive: false },
+    'Read 5 books': { time: '9:15 AM', duration: 20, social: true, exclusive: false },
     'Eating solids': { time: '12:30 PM', duration: 30, social: false, exclusive: true },
     'Going for a walk': { time: '3:30 PM', duration: 45, social: true, exclusive: true },
     'Having a bath': { time: '6:00 PM', duration: 30, social: false, exclusive: true, exemptFromEndTime: true },
