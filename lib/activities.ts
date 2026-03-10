@@ -216,27 +216,6 @@ function scoreActivity(activity: Activity, context: SelectionContext): number {
     score += 15; // Boost outdoor when going out
   }
 
-  // Energy level matching
-  if (survey.energyLevel === 'low') {
-    if (activity.energyRequired === 'high') {
-      score -= 40; // Significant penalty for high-energy on low-energy days
-    } else if (activity.energyRequired === 'low') {
-      score += 20; // Boost low-energy activities
-    }
-  } else if (survey.energyLevel === 'high') {
-    if (activity.energyRequired === 'high') {
-      score += 15; // Boost high-energy activities
-    }
-  }
-
-  // Crafts/creative preference
-  if (survey.wantsCrafts && activity.category === 'creative') {
-    score += 30; // Big boost for creative activities when wanted
-  }
-  if (survey.wantsCrafts && activity.tags.includes('messy')) {
-    score += 10; // Also boost messy activities
-  }
-
   // Duration based on appointments (busy day = shorter activities)
   if (survey.appointments && survey.appointments.length > 0) {
     if (activity.duration <= 15) {
@@ -655,42 +634,27 @@ export function generateChecklist(
   return items;
 }
 
-// Get a replacement bonus activity (excluding currently used ones)
+// Get a random replacement activity from the full bank (age-filtered only)
 export function getReplacementActivity(
   survey: DailySurvey,
   weather: WeatherData | null,
-  excludeActivityIds: string[],
-  scheduledMinutes?: number
+  excludeActivityIds: string[]
 ): Activity | null {
   const babyAgeMonths = getBabyAgeMonths();
 
-  const context: SelectionContext = {
-    survey,
-    weather,
-    babyAgeMonths,
-  };
-
-  // Score all activities, excluding those that overlap with recurring tasks and already used ones
-  const scored = activities
-    .filter(activity => !overlapsWithRecurringTasks(activity))
+  // Filter only by age and exclude currently used activities
+  const eligible = activities
     .filter(activity => !excludeActivityIds.includes(activity.id))
-    .filter(activity => {
-      // Filter cafe/food activities by time constraint (must end by 3pm = 900 mins)
-      if (isCafeOrFoodActivity(activity) && scheduledMinutes !== undefined) {
-        const endTime = scheduledMinutes + activity.duration;
-        if (endTime > 900) return false; // 3pm = 15:00 = 900 minutes
-      }
-      return true;
-    })
-    .map(activity => ({
-      activity,
-      score: scoreActivity(activity, context),
-    }))
-    .filter(({ score }) => score > 0)
-    .sort((a, b) => b.score - a.score);
+    .filter(activity =>
+      babyAgeMonths >= activity.ageRange.min &&
+      babyAgeMonths <= activity.ageRange.max
+    );
 
-  // Return the top scoring activity
-  return scored.length > 0 ? scored[0].activity : null;
+  if (eligible.length === 0) return null;
+
+  // Pick randomly
+  const randomIndex = Math.floor(Math.random() * eligible.length);
+  return eligible[randomIndex];
 }
 
 // Get a specific activity by ID (for details view)

@@ -401,17 +401,8 @@ export default function Checklist({
       {/* Context summary */}
       <div className="flex flex-wrap gap-2 text-sm">
         <span className="px-3 py-1 bg-gray-100 dark:bg-gray-800 rounded-full">
-          {survey.energyLevel === 'low' ? '😴 Low energy' :
-           survey.energyLevel === 'high' ? '⚡ High energy' : '😊 Medium energy'}
-        </span>
-        <span className="px-3 py-1 bg-gray-100 dark:bg-gray-800 rounded-full">
           {survey.stayingHome ? '🏠 Home day' : '🚗 Out & about'}
         </span>
-        {survey.wantsCrafts && (
-          <span className="px-3 py-1 bg-gray-100 dark:bg-gray-800 rounded-full">
-            🎨 Crafts today
-          </span>
-        )}
         <button
           onClick={onEditSurvey}
           className="px-3 py-1 text-indigo-600 dark:text-indigo-400 hover:underline"
@@ -483,7 +474,7 @@ export default function Checklist({
                       item={item}
                       onToggle={() => onToggle(item.id)}
                       onEdit={() => handleEditItem(item)}
-                      onRefresh={item.type === 'bonus' ? () => onRefreshBonusActivity(item.id) : undefined}
+                      onRefresh={(item.type === 'bonus' || item.type === 'recurring') ? () => onRefreshBonusActivity(item.id) : undefined}
                       showTime
                       showDetails={item.type === 'bonus'}
                       draggable
@@ -547,6 +538,7 @@ export default function Checklist({
                   key={item.id}
                   item={item}
                   onToggle={() => onToggle(item.id)}
+                  onRefresh={() => onRefreshBonusActivity(item.id)}
                 />
               ))}
             </div>
@@ -559,7 +551,7 @@ export default function Checklist({
               <span>Bonus Activities</span>
             </h2>
             <p className="text-sm text-gray-500 dark:text-gray-400 mb-3">
-              Picked just for today based on weather & your energy
+              Picked just for today based on weather & preferences
             </p>
             <div className="space-y-2">
               {bonusItems.map(item => (

@@ -12,7 +12,7 @@ const STORAGE_KEYS = {
 
 // Default values
 const DEFAULT_PREFERENCES: UserPreferences = {
-  babyBirthDate: '2025-06-15', // June 2025
+  babyBirthDate: '2025-06-23', // June 2025
   babyName: 'Baby',
   location: {
     lat: -37.8136,

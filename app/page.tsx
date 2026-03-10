@@ -119,34 +119,20 @@ export default function Home() {
     setChecklist(updated);
   };
 
-  // Handle refresh bonus activity - swap it for a different one
+  // Handle refresh activity - swap it for a random one from the full bank
   const handleRefreshBonusActivity = (itemId: string) => {
     if (!checklist || !survey) return;
 
     const item = checklist.items.find(i => i.id === itemId);
-    if (!item || item.type !== 'bonus') return;
+    if (!item) return;
 
-    // Get IDs of all current bonus activities to exclude them
-    const currentBonusIds = checklist.items
-      .filter(i => i.type === 'bonus' && i.activity)
+    // Get IDs of all current activities to exclude them
+    const currentActivityIds = checklist.items
+      .filter(i => i.activity)
       .map(i => i.activity!.id);
 
-    // Parse the scheduled time to minutes for cafe filtering
-    let scheduledMins: number | undefined;
-    if (item.suggestedTime) {
-      const match = item.suggestedTime.match(/(\d{1,2}):(\d{2})\s*(AM|PM)/i);
-      if (match) {
-        let hours = parseInt(match[1]);
-        const minutes = parseInt(match[2]);
-        const isPM = match[3].toUpperCase() === 'PM';
-        if (isPM && hours !== 12) hours += 12;
-        if (!isPM && hours === 12) hours = 0;
-        scheduledMins = hours * 60 + minutes;
-      }
-    }
-
-    // Get a replacement activity
-    const replacement = getReplacementActivity(survey, weather, currentBonusIds, scheduledMins);
+    // Get a random replacement activity
+    const replacement = getReplacementActivity(survey, weather, currentActivityIds);
     if (!replacement) return;
 
     // Update the checklist with the new activity
@@ -156,6 +142,7 @@ export default function Home() {
           ...i,
           task: `${replacement.title} (${replacement.duration}min)`,
           activity: replacement,
+          type: 'bonus' as const,
         };
       }
       return i;
